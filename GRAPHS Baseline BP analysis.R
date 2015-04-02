@@ -105,48 +105,7 @@ cl   <- function(data,fm, cluster){ # fm is the "fitted model" from a linear reg
 # cl(data = nmar, fm = regt, cluster = nmar$state)
   
 
-# Unadjusted analysis ------
-bpdata_complete <- data[complete.cases(data),] 
-nrow(bpdata_complete) #855
 
-
-fm <- lm(sbp ~ log(mean_corr), data = bpdata_complete)
-cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
-
-
-# Estimate Std. Error  t value Pr(>|t|)    
-# (Intercept)    105.885036   0.385522 274.6536   <2e-16 ***
-#   log(mean_corr)   0.093744   0.362705   0.2585   0.7961    
-
-
-fm <- lm(dbp ~ log(mean_corr), data = bpdata_complete)
-cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
-
-# Estimate Std. Error  t value Pr(>|t|)    
-# (Intercept)    63.30449    0.31863 198.6750  < 2e-16 ***
-#   log(mean_corr)  0.69297    0.30455   2.2754  0.02313 *  
-
-
-
-# Sensitivity with q98: -----
-bpdata_complete$q98_fix <- bpdata_complete$q98_corr + 0.1
-
-# sbp
-fm <- lm(sbp ~ log(q98_fix), data = bpdata_complete)
-cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
-
-# Estimate Std. Error  t value Pr(>|t|)    
-# (Intercept)  105.816873   0.912500 115.9637   <2e-16 ***
-#   log(q98_fix)   0.038604   0.366320   0.1054   0.9161 
-
-
-# dbp
-fm <- lm(dbp ~ log(q98_fix), data = bpdata_complete)
-cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
-
-# Estimate Std. Error t value Pr(>|t|)    
-# (Intercept)  62.21011    0.71204 87.3687  < 2e-16 ***
-#   log(q98_fix)  0.54767    0.29628  1.8485  0.06488 . 
 
 
 # check for BMI outliers and set to NA
@@ -176,7 +135,7 @@ stepS$anova # display results
 
 
 
-# Final Model:
+# Stepwise Final Model:
 # sbp ~ age + log(BMI) + asset_index + gestwks + vil_pop + vil_some_edu + vil_hhsize + tobacco + threestone
 # but keep CO in since it's our predictor of interest
 
@@ -186,19 +145,45 @@ fit <- lm(dbp ~ log(mean_corr) + age + log(BMI)  + asset_index + gestwks + shs  
 stepD <- stepAIC(fit, direction="both", na.action = na.omit)
 stepD$anova # display results
 
-# Final Model:
+# Stepwise Final Model:
 #   dbp ~ log(mean_corr) + log(BMI) + gestwks + vil_pop + vil_some_edu + village_ses2 + vil_hhsize + tobacco + threestone + roadsale 
 # (but include asset index rather than village SES?)
 
 
-# variables to keep: 
+# variables to keep in final model: 
 # ~ log(mean_corr) + age + log(BMI)  + asset_index + gestwks + tobacco_bin 
 
 # tobacco_bin
 bpdata_complete$tobacco_bin <- ifelse(bpdata_complete$tobacco > 0, 1, 0)
 
+### FINAL MODEL -------
+
+# Unadjusted final model ------
+bpdata_complete <- data[complete.cases(data),] 
+nrow(bpdata_complete) #855
+
+
+fm <- lm(sbp ~ log(mean_corr), data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+
+
+# Estimate Std. Error  t value Pr(>|t|)    
+# (Intercept)    105.885036   0.385522 274.6536   <2e-16 ***
+#   log(mean_corr)   0.093744   0.362705   0.2585   0.7961    
+
+
+fm <- lm(dbp ~ log(mean_corr), data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+
+# Estimate Std. Error  t value Pr(>|t|)    
+# (Intercept)    63.30449    0.31863 198.6750  < 2e-16 ***
+#   log(mean_corr)  0.69297    0.30455   2.2754  0.02313 *  
+
+
+
+# Adjusted final model --------
 # SBP, outcome not on log scale
-fm <- lm(sbp ~ log(mean_corr) + age + log(BMI) + gestwks + asset_index + tobacco_bin + as.factor(weekday), data = bpdata_complete) 
+fm <- lm(sbp ~ log(mean_corr) + age + log(BMI) + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
 
 cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # CO coef: 0.28
@@ -206,14 +191,265 @@ cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # for a doubling in CO, SBP increases by 0.28*log(2) = 0.2 points
 
 # DBP, outcome not on log scale
-fm <- lm(dbp ~ log(mean_corr) + age + log(BMI) + gestwks + asset_index + tobacco_bin + as.factor(weekday), data = bpdata_complete) 
-
+fm <- lm(dbp ~ log(mean_corr) + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
 cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # CO coef: 0.71, p-val = 0.01
 # interp: for a 10% increase in CO, DBP increases by 0.71*log(1.1) = 0.07 points.
-# for a doubling in CO, SBP increases by 0.71*log(2) = 0.5 points
+# for a doubling in CO, DBP increases by 0.71*log(2) = 0.5 points
 
 
+# Sensitivity with q98: -----
+bpdata_complete$q98_fix <- bpdata_complete$q98_corr + 0.1
+
+# sbp
+fm <- lm(sbp ~ log(q98_fix), data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+
+# Estimate Std. Error  t value Pr(>|t|)    
+# (Intercept)  105.816873   0.912500 115.9637   <2e-16 ***
+#   log(q98_fix)   0.038604   0.366320   0.1054   0.9161 
+
+
+# dbp
+fm <- lm(dbp ~ log(q98_fix), data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+
+# Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  62.21011    0.71204 87.3687  < 2e-16 ***
+#   log(q98_fix)  0.54767    0.29628  1.8485  0.06488 . 
+
+# Testing on natural scale ------
+# Must deal with outliers
+# SBP, crude
+fm <- lm(sbp ~ mean_corr, data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: .0028, p-val = 0.98
+
+# adjusted
+fm <- lm(sbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: 0.03, p-val 0.82
+# Interp: SBP goes up 0.03mmHG for every 1ppm increase in mean CO
+
+# DBP, neither exposure nor outcome on log scale
+# crude
+fm <- lm(dbp ~ mean_corr, data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: 0.23, p-val = 0.13
+
+# adjusted
+fm <- lm(dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: 0.23, p-val 0.07
+# interp: DBP goes up 0.23 mmHG for every 1ppm increase in mean CO
+
+# Testing robust regression --------
+# see http://www.ats.ucla.edu/stat/r/dae/rreg.htm
+# This led to results very similar to using the complete data set
+library(MASS)
+# SBP, neither exposure nor outcome on log scale
+# crude
+fm <- rlm(sbp ~ mean_corr, data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: -0.04, p-val = 0.69
+
+# adjusted
+fm <- lm(sbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: -0.02, p-val 0.83
+
+# DBP
+# crude
+fm <- rlm(dbp ~ mean_corr, data = bpdata_complete)
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: 0.19, p-val = 0.21
+
+# adjusted
+fm <- lm(dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef: 0.20, p-val = 0.06
+
+hweights <- data.frame(mstudyid = bpdata_complete$mstudyid, mean_corr = bpdata_complete$mean_corr, resid = fm$resid, weight = fm$w)
+hweights2 <- hweights[order(fm$w), ]
+hweights2[1:15, ]
+
+d1 <- cooks.distance(fm) # must do from an lm not an rlm
+r <- stdres(fm)
+a <- cbind(bpdata_complete, d1, r) 
+a <- a[order(a$d1, decreasing = TRUE),]
+a[d1 > 4/855,c("mstudyid", "mean_corr", "d1", "r") ]
+
+## TESTING INFLUENCE OF OUTLIERS -------
+# Getting rid of outliers one by one 
+outliers <- boxplot.stats(bpdata_complete$mean_corr, coef = 2)$out
+outliers <- outliers[order(outliers, decreasing = TRUE)]
+coefs <- matrix(nrow = length(outliers), ncol = 2)
+
+# SBP
+for (i in 1:length(outliers)) { #17
+  data = bpdata_complete[bpdata_complete$mean_corr < outliers[i],]
+  fm <- lm(sbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = data) 
+  coef <- cl(fm = fm, data = data, cluster = data$vil_code)[2,1] # pulling out the coefficient for mean_corr
+  coefs[i,1] <- i
+  coefs[i,2] <- coef
+}
+plot(coefs[,1], coefs[,2], ylim = c(0, 0.5),xlab = "Number of CO outliers removed", ylab = "Beta coefficient for CO", main = "Effect of outlier removal on regression slope for SBP", cex.main = 0.9)
+lines(coefs[,1], coefs[,2])
+abline(v = length(boxplot.stats(bpdata_complete$mean_corr, coef = 3)$out), col = "blue", lty = "dotted", lwd =2)
+abline(v = length(boxplot.stats(bpdata_complete$mean_corr, coef = 3.5)$out), col = "red", lty = "dotted", lwd =2)
+abline(v = length(boxplot.stats(bpdata_complete$mean_corr, coef = 4)$out), col = "green", lty = "dotted", lwd =2)
+legend("topright", legend = c("3 x IQR", "3.5 x IQR", "4 x IQR"), col = c("blue", "red", "green"), lty = "dotted", lwd =2)
+
+
+# DBP
+pdf(file = "Effect of outliers on beta for DBP.pdf")
+for (i in 1:length(outliers)) { #17
+  data = bpdata_complete[bpdata_complete$mean_corr < outliers[i],]
+  fm <- lm(dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = data) 
+  coef <- cl(fm = fm, data = data, cluster = data$vil_code)[2,1] # pulling out the coefficient for mean_corr
+  coefs[i,1] <- i
+  coefs[i,2] <- coef
+}
+plot(coefs[,1], coefs[,2], ylim = c(0.2, 0.8),xlab = "Number of CO outliers removed", ylab = "Beta coefficient for CO", main = "Effect of outlier removal on regression slope for DBP", cex.main = 0.9, xaxp = c(1,17,16))
+lines(coefs[,1], coefs[,2])
+abline(v = length(boxplot.stats(bpdata_complete$mean_corr, coef = 3)$out), col = "blue", lty = "dotted", lwd =2)
+
+legend("topright", legend = c("3x IQR"), col = c("blue"), lty = "dotted", lwd =2)
+dev.off()
+
+length(boxplot.stats(bpdata_complete$mean_corr, coef = 3)$out) # 9
+# for final model, 9 outliers removed at >3x IQR
+
+# Sensitivity: without outliers greater than 3x the IQR for CO -----
+bpdata_complete$q98_fix <- bpdata_complete$q98_corr + 0.1 # not nec if not on log scale
+bpdata_complete$q90_fix <- bpdata_complete$q90_corr + 0.1
+
+
+bpdata_rmout <-  bpdata_complete[!bpdata_complete$mean_corr %in% boxplot.stats(bpdata_complete$mean_corr, coef = 3)$out,]
+nrow(bpdata_rmout) #846
+
+# plots
+pdf(file = "Testing outliers.pdf")
+par(mfrow = c(1,2))
+plot(bpdata_complete$mean_corr, bpdata_complete$sbp, main = "SBP", xlab = "Mean CO", ylab = "SBP")
+legend("topright", legend = c("beta = 0.03, p-val = 0.82"))
+
+
+plot(bpdata_rmout$mean_corr, bpdata_rmout$sbp, main = "SBP, no outliers",  xlab = "Mean CO", ylab = "SBP")
+legend("topright", legend = c("beta = 0.34, p-val = 0.25"))
+
+
+plot(bpdata_complete$mean_corr, bpdata_complete$dbp, main = "DBP", xlab = "Mean CO", ylab = "DBP")
+legend("topright", legend = c("beta = 0.23, p-val = 0.07"))
+
+
+plot(bpdata_rmout$mean_corr, bpdata_rmout$dbp, main = "DBP, no outliers",  xlab = "Mean CO", ylab = "DBP")
+legend("topright", legend = c("beta = 0.48, p-val = 0.04"))
+dev.off()
+
+
+
+
+
+# SBP
+# crude
+fm <- lm(sbp ~ mean_corr, data = bpdata_rmout) 
+cl(fm = fm, data = bpdata_rmout, cluster = bpdata_rmout$vil_code)
+# CO coef: 0.27, p-val = 0.41
+# 95% CI: 0.26945 +/- 0.32867 * 1.963 = [-0.376, 0.915]
+
+# adjusted
+fm <- lm(sbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_rmout) 
+cl(fm = fm, data = bpdata_rmout, cluster = bpdata_rmout$vil_code)
+# CO coef = 0.39, p-val = 0.21
+# 95% CI: 0.394676 - 0.317346 * 1.963,  0.394676 + 0.317346 * 1.963 = [-0.228, 1.018]
+
+# DBP
+# crude
+fm <- lm(dbp ~ mean_corr, data = bpdata_rmout)
+cl(fm = fm, data = bpdata_rmout, cluster = bpdata_rmout$vil_code)
+# CO coef: 0.51, p-val = 0.04
+# 95% CI:  0.51419 +/- 0.24377*1.963 = [0.036, 0.993]
+
+
+fm <- lm(dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_rmout) 
+cl(fm = fm, data = bpdata_rmout, cluster = bpdata_rmout$vil_code)
+# coef = 0.52, p-val = 0.03
+# 95% CI: 0.515821 - 0.239468*1.963; 0.515821 + 0.239468*1.963 = [0.046, 0.986]
+
+
+
+
+# Sensitivity with q98 -------
+# !! This is not at all the same. And not explained by different outliers. Why?
+which(bpdata_complete$mean_corr %in% boxplot.stats(bpdata_complete$mean_corr, coef = 3)$out)
+which(bpdata_complete$q98_corr %in% boxplot.stats(bpdata_complete$q98_corr, coef = 3)$out) # 17 including all but 1 of the 9 for mean_corr
+bpdata_rmout2 <-  bpdata_complete[!bpdata_complete$q98_corr %in% boxplot.stats(bpdata_complete$q98_corr, coef = 3)$out,]
+
+# SBP
+# adjusted
+fm <- lm(sbp ~ q98_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_rmout2) 
+cl(fm = fm, data = bpdata_rmout2, cluster = bpdata_rmout2$vil_code)
+# CO coef = 0.05, p-val = 0.25
+
+# DBP
+# adjusted
+fm <- lm(dbp ~ q98_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_rmout2) 
+cl(fm = fm, data = bpdata_rmout2, cluster = bpdata_rmout2$vil_code)
+# CO coef = 0.05, p-val = 0.15
+
+
+
+# Calculate the ICC (http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=0CB8QFjAA&url=http%3A%2F%2Fdavidakenny.net%2Fpapers%2Fk%26h%2FMLM_R.pdf&ei=vV8UVfTIIcG1sASF-YDgBA&usg=AFQjCNHY-jZyh8vCLVCdCDExDDIaivYVoA&sig2=k-8M3kpbjXSiiZ9L1zEM3Q&bvm=bv.89217033,d.cWc)
+
+# null model
+nullfit <- lme(fixed = sbp ~ 1, data = bpdata_rmout, random = ~1|vil_code)
+summary(nullfit)
+# Random effects:
+#Formula: ~1 | vil_code
+#(Intercept) Residual
+#StdDev:   0.6865927 10.14731
+(0.6865927^2)/( 0.6865927^2 + 10.14731^2) # use variance (SD^2) rather than SD, see link above
+# ICC = 0.005
+
+nullfit <- lme(fixed = dbp ~ 1, data = bpdata_rmout, random = ~1|vil_code)
+summary(nullfit)
+# Random effects:
+#Formula: ~1 | vil_code
+#(Intercept) Residual
+#StdDev:  0.9680754 7.841403
+0.9680754^2/(0.9680754^2 + 7.841403^2) # ICC = 0.015
+
+# or from package multilevel
+aov.1 <- aov(sbp ~ vil_code, bpdata_rmout)
+ICC1(aov.1) # 0.018
+aov.1 <- aov(dbp ~ vil_code, bpdata_rmout)
+ICC1(aov.1) # 0.017
+
+
+
+# using multilevel model instead of clustered errors (results practically identical)
+library(nlme)
+
+# SBP, all data
+fit <- lme(fixed = sbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete, random = ~1|vil_code)
+summary(fit)
+# coef = 0.03, p-val = 0.83
+
+# SBP, no outliers
+fit <- lme(fixed = sbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_rmout, random = ~1|vil_code)
+summary(fit)
+# coef = 0.34, p-val = 0.23
+
+# DBP, all data
+fit <- lme(fixed = dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete, random = ~1|vil_code)
+summary(fit)
+# coef = 0.24, p-val = 0.05
+
+# DBP, no outliers
+fit <- lme(fixed = dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_rmout, random = ~1|vil_code)
+summary(fit)
+# coef = 0.47, p-val = 0.04
 
 # SBP, using 98th percentile
 bpdata_complete$q98_fix <- bpdata_complete$q98_corr + 0.1
@@ -240,6 +476,14 @@ fm <- lm(dbp ~ log(q90_fix) + age + log(BMI) + gestwks + asset_index + tobacco_b
 
 cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # CO coef: 0.32, p-val = 0.16
+
+# Sens: CO outliers - are these driving the results?--------
+boxplot.stats(bpdata_complete$mean_corr, coef = 3.5) # 8 outliers (above 7.2)
+boxplot.stats(bpdata_complete$mean_corr, coef = 3) # 9 outliers (above 6.7)
+boxplot.stats(bpdata_complete$mean_corr, coef = 2.5) # 15 ourliers (above 5.96)
+boxplot.stats(bpdata_complete$mean_corr, coef = 2) # 17 outliers (above 5.3)
+
+# Sens: multilevel model instead of clustered SEs -----------
 
 
 # checking rainy and weekday
@@ -269,6 +513,7 @@ bpdata5 <- bpdata2[-c(680, 855, 29),]
 
 # Mccracken: age & BMI (linear); binary indicators for: smoking, SHS exposure, temescal use, household electricity. The asset index is the sum of binary indicators for having a bicycle, a radio, and a television, and was entered as categorical variable. To increase precision, we also considered time-varying covariates, such as apparent temperature, sea- son, day of the week, and time of day. We used linear terms to control for daily average apparent temperature and time of day and dummy variables for each day of the week and for rainy (1 May–31 October) versus dry season (1 November –30 April).
 
+# OLD (NOT CLEAN) DATA SET--------
 # complete case analysis
 
 # linear variables: sbp, dbp, asset_index, gestwks, crops, farmln
