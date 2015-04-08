@@ -153,13 +153,21 @@ stepD$anova # display results
 # variables to keep in final model: 
 # ~ log(mean_corr) + age + log(BMI)  + asset_index + gestwks + tobacco_bin 
 
-# tobacco_bin
-bpdata_complete$tobacco_bin <- ifelse(bpdata_complete$tobacco > 0, 1, 0)
+
+## CONFIDENCE INTERVALS-----
+# 95% CI: coef +/- SE*t^alpha/2,n-k-1
+# unadjusted: n = 855, k = 1
+# t^0.025,854 = 1.963
+# adjusted: n = 855, k = 6
+# t^0.025,848 = 1.963 (same)
 
 ### FINAL MODEL -------
 
 # Unadjusted final model ------
 bpdata_complete <- data[complete.cases(data),] 
+# tobacco_bin
+bpdata_complete$tobacco_bin <- ifelse(bpdata_complete$tobacco > 0, 1, 0)
+
 nrow(bpdata_complete) #855
 
 
@@ -170,6 +178,8 @@ cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # Estimate Std. Error  t value Pr(>|t|)    
 # (Intercept)    105.885036   0.385522 274.6536   <2e-16 ***
 #   log(mean_corr)   0.093744   0.362705   0.2585   0.7961    
+# 95% CI: 0.093744 +/- 0.362705 * 1.963 = [-0.62, 0.81]
+
 
 
 fm <- lm(dbp ~ log(mean_corr), data = bpdata_complete)
@@ -178,22 +188,26 @@ cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # Estimate Std. Error  t value Pr(>|t|)    
 # (Intercept)    63.30449    0.31863 198.6750  < 2e-16 ***
 #   log(mean_corr)  0.69297    0.30455   2.2754  0.02313 *  
-
+# 95% CI: 0.69297 +/- 0.30455 * 1.963 = [0.10, 1.29]
 
 
 # Adjusted final model --------
-# SBP, outcome not on log scale
+# SBP
 fm <- lm(sbp ~ log(mean_corr) + age + log(BMI) + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
 
 cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # CO coef: 0.28
+# 95% CI: 0.284560 +/- 0.325529 * 1.963 = [-0.35, 0.92]
 # interp: for a 10% increase in CO, SBP increases by 0.28*log(1.1) = 0.03 points.
 # for a doubling in CO, SBP increases by 0.28*log(2) = 0.2 points
 
-# DBP, outcome not on log scale
+
+
+# DBP
 fm <- lm(dbp ~ log(mean_corr) + age + BMI + gestwks + asset_index + tobacco_bin, data = bpdata_complete) 
 cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
 # CO coef: 0.71, p-val = 0.01
+# 95% CI: 0.7073621 +/-0.2779468 * 1.963 = [0.16, 1.25]
 # interp: for a 10% increase in CO, DBP increases by 0.71*log(1.1) = 0.07 points.
 # for a doubling in CO, DBP increases by 0.71*log(2) = 0.5 points
 
@@ -491,8 +505,39 @@ bpdata_complete$months <- months(bpdata_complete$firstdate)
 bpdata_complete$rainy <- ifelse(bpdata_complete$months %in% c("April", "May", "June", "September", "October"), 1, 0)
 bpdata_complete$weekday <- wday(bpdata_complete$firstdate) # Sunday is 1
 
+# sensitivity: only the overall_valid =1 -------
+baselinebpdata$tobacco_bin <- ifelse(baselinebpdata$tobacco > 0, 1, 0)
+sens <- baselinebpdata[baselinebpdata$overall_valid ==1 & baselinebpdata$mstudyid %in% bpdata_complete$mstudyid,] #807
+plot(sens$mean_corr, sens$sbp,  ylab = "SBP", xlab = "Mean CO", main = "only Validity = 1")
+plot(bpdata_complete$mean_corr, bpdata_complete$sbp, ylab = "SBP", xlab = "Mean CO", main = "all data")
+plot(sens$mean_corr, sens$dbp, ylab = "DBP", xlab = "Mean CO", main = "only Validity = 1")
+plot(bpdata_complete$mean_corr, bpdata_complete$dbp, ylab = "DBP", xlab = "Mean CO", main = "all data")
+# SBP
+# crude
+fm <- lm(sbp ~ mean_corr, data = sens) 
+cl(fm = fm, data = sens, cluster = sens$vil_code)
+#CO coef = 0.53, p=val = 0.07
+# adjusted
+fm <- lm(sbp ~ mean_corr + age + log(BMI) + gestwks + asset_index + tobacco_bin, data = sens) 
+cl(fm = fm, data = sens, cluster = sens$vil_code)
+# CO coef = 0.53, p-val = 0.05
 
 
+
+# DBP
+# crude
+fm <- lm(dbp ~ mean_corr, data = sens) 
+cl(fm = fm, data = sens, cluster = sens$vil_code)
+# CO coef = 0.92, p-val = 0.01
+
+fm <- lm(dbp ~ mean_corr, data = bpdata_complete) 
+cl(fm = fm, data = bpdata_complete, cluster = bpdata_complete$vil_code)
+# CO coef = 0.23, p-val = 0.12
+
+# adjusted
+fm <- lm(dbp ~ mean_corr + age + BMI + gestwks + asset_index + tobacco_bin, data = sens) 
+cl(fm = fm, data = sens, cluster = sens$vil_code)
+# CO coef: 0.90; p-val = 0.01
 
 # diagnostics: Cook's Distance for influential observations
 # Identify largest Cook's D 
@@ -867,7 +912,78 @@ bpdata5 <- bpdata2[-c(680, 855, 29),]
 
 # Table 1 -----
 
+
+
 # for continuous variables and NAs
+library(pastecs)
+options("scipen" = 6, "digits" = 3)
+stat.desc(baselinebpdata[baselinebpdata$final_analysis == 1,c("age", "BMI", "gestwks", "asset_index")])
+stat.desc(baselinebpdata[baselinebpdata$final_analysis == 0,c("age", "BMI", "gestwks", "asset_index")])
+
+
+t.test(baselinebpdata$age[baselinebpdata$final_analysis ==1], baselinebpdata$age[baselinebpdata$final_analysis ==0])
+t.test(baselinebpdata$BMI[baselinebpdata$final_analysis ==1], baselinebpdata$BMI[baselinebpdata$final_analysis ==0])
+t.test(baselinebpdata$gestwks[baselinebpdata$final_analysis ==1], baselinebpdata$gestwks[baselinebpdata$final_analysis ==0])
+
+
+t.test(baselinebpdata$bp[baselinebpdata$final_analysis ==1], baselinebpdata$bp[baselinebpdata$final_analysis ==0]) # for means only, this is not a continuous variable
+fisher.test(table(baselinebpdata$bp, baselinebpdata$final_analysis))
+
+t.test(baselinebpdata$shs[baselinebpdata$final_analysis ==1], baselinebpdata$shs[baselinebpdata$final_analysis ==0]) # for means only, this is not a continuous variable
+fisher.test(table(baselinebpdata$shs, baselinebpdata$final_analysis))
+
+
+# for smokecur/smokpast
+baselinebpdata$ever_smoker <- ifelse(baselinebpdata$smokecur == 1 | baselinebpdata$smokpast == 1, 1, 0)
+t.test(baselinebpdata$ever_smoker[baselinebpdata$final_analysis == 1], baselinebpdata$ever_smoker[baselinebpdata$final_analysis == 0]) # for means only, this is not a continuous variable
+fisher.test(baselinebpdata$ever_smoker, baselinebpdata$final_analysis)
+
+
+table(baselinebpdata$medlev[baselinebpdata$final_analysis == 0 & !is.na(baselinebpdata$medlev)])/nrow(baselinebpdata[baselinebpdata$final_analysis == 0 &!is.na(baselinebpdata$medlev),]) *100
+medlev <- table(baselinebpdata$medlev[!is.na(baselinebpdata$medlev)], baselinebpdata$final_analysis[!is.na(baselinebpdata$medlev)])
+fisher.test(medlev)
+
+
+table(baselinebpdata$married[baselinebpdata$final_analysis == 0 & !is.na(baselinebpdata$married)])/nrow(baselinebpdata[baselinebpdata$final_analysis == 0 &!is.na(baselinebpdata$married),]) *100
+married <- table(baselinebpdata$married[!is.na(baselinebpdata$married)], baselinebpdata$final_analysis[!is.na(baselinebpdata$married)], useNA = "always")
+fisher.test(married)
+
+table(baselinebpdata$salary[baselinebpdata$final_analysis == 0 & !is.na(baselinebpdata$salary)])/nrow(baselinebpdata[baselinebpdata$final_analysis == 0 & !is.na(baselinebpdata$salary),]) *100
+salary <- table(baselinebpdata$salary[!is.na(baselinebpdata$salary)], baselinebpdata$final_analysis[!is.na(baselinebpdata$salary)])
+fisher.test(salary)
+
+table(baselinebpdata$water[baselinebpdata$final_analysis == 0], useNA = "always")/nrow(baselinebpdata[baselinebpdata$final_analysis == 0,]) *100
+water <- table(baselinebpdata$water, baselinebpdata$final_analysis)
+water <- water[1:6,]
+fisher.test(water)
+
+table(baselinebpdata$toilet[baselinebpdata$final_analysis == 0])/nrow(baselinebpdata[baselinebpdata$final_analysis == 0,]) *100
+toilet <- table(baselinebpdata$toilet, baselinebpdata$final_analysis)
+fisher.test(toilet)
+
+
+
+names(bpdata_complete)[54:66]
+for (i in 54:66) {
+  print(names(bpdata_complete)[i])
+  print(table(bpdata_complete[, i], useNA = "always")/855*100)
+}
+
+names(baselinebpdata)[183:203]
+for (i in 183:203) {
+  print(names(baselinebpdata)[i])
+  print(table(baselinebpdata[baselinebpdata$final_analysis == 0, i], useNA = "always")/nrow(baselinebpdata[baselinebpdata$final_analysis == 0,])*100)
+}
+
+t.test(baselinebpdata$asset_index[baselinebpdata$final_analysis == 1], baselinebpdata$asset_index[baselinebpdata$final_analysis == 0])
+summary(bpdata$cookingevents)
+hist(bpdata$cookingevents)
+nrow(bpdata[bpdata$cookingevents ==0 & !is.na(bpdata$cookingevents),]) #10
+
+# For excluded people (1183-855 = 328)
+baselinebpdata <- readRDS("/Users/ashlinn/Dropbox/Ghana project/BP project/Baseline BP Paper/Ghana BP R Materials/baselinedata_Feb12.rds")
+baselinebpdata$final_analysis <- ifelse(baselinebpdata$mstudyid %in% bpdata_complete$mstudyid, 1, 0)
+
 library(pastecs)
 options("scipen" = 6, "digits" = 3)
 stat.desc(bpdata_complete[,c("age", "BMI", "gestwks")])
@@ -897,7 +1013,6 @@ summary(bpdata$cookingevents)
 hist(bpdata$cookingevents)
 nrow(bpdata[bpdata$cookingevents ==0 & !is.na(bpdata$cookingevents),]) #10
 
-
 ###### FIGURE 1: Example CO Plot ----
 # BM0748M in CU_CO_122
 library(ggplot2)
@@ -925,6 +1040,15 @@ plot(d, main = "", lwd = 2, xlab = "Mean CO(ppm)", ylab = "Probability density",
 abline(v = mean(bpdata_complete$mean_corr), lty = "dotted")
 text(x = mean(bpdata_complete$mean_corr), y = 0.3, pos = 4, label = paste("Mean 72-hour-averaged CO:\n", round(mean(bpdata_complete$mean_corr), digits = 2), "\U00b1", round(sd(bpdata_complete$mean_corr), digits = 2), "ppm \n (range: ", round(range(bpdata_complete$mean_corr), digits = 3)[1], "to", round(range(bpdata_complete$mean_corr), digits = 1)[2], "ppm)"))
 dev.off()
+
+# sens (overall-valid = 1)
+d <- density(sens$mean_corr)
+plot(d, main = "", lwd = 2, xlab = "Mean CO(ppm)", ylab = "Probability density", col = "coral3")
+abline(v = mean(sens$mean_corr), lty = "dotted")
+text(x = mean(sens$mean_corr), y = 0.3, pos = 4, label = paste("Mean 72-hour-averaged CO:\n", round(mean(sens$mean_corr), digits = 2), "\U00b1", round(sd(sens$mean_corr), digits = 2), "ppm \n (range: ", round(range(sens$mean_corr), digits = 3)[1], "to", round(range(sens$mean_corr), digits = 1)[2], "ppm)"))
+
+plot(sens$mean_corr, sens$sbp)
+plot(bpdata_complete$mean_corr, bpdata_complete$dbp)
 
 ##### FIGURE 3: Graph of BP Kernel Density ----
 pdf(file = paste0("Fig3_BP_Density", format(Sys.Date(), format = "%b%d"), ".pdf"), width = 10, height = 6)
