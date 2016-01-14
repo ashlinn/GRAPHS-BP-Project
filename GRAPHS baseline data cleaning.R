@@ -816,6 +816,13 @@ colnames(village_codes)[c(4:5,7:8,19)] <- paste0("vil_", colnames(village_codes)
 village_variables <- village_codes[,c("vil_code", "vil_pop", "vil_some_edu", "vil_modal_rel", "vil_modal_ethn", "village_ses2", "vil_hhsize", "vil_on_road")]
 baselinebpdata <- merge(baselinebpdata, village_variables, by = "vil_code", all.x = TRUE)
 
+
+## check variables
+summary(baselinebpdata[, c("age", "BMI", "gestwks", "asset_index", "sbp", "dbp")])
+
+# Fix BM1315M age
+baselinebpdata$age[baselinebpdata$mstudyid == "BM1315M"] <- 20
+
 # save data
 saveRDS(baselinebpdata, file = paste0("baselinedata_", format(Sys.Date(), format = "%b%d"), ".rds"))
 
